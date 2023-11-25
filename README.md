@@ -13,30 +13,64 @@ For example, you can easily rewrite any selected text in any application with ju
 6. Copy the the following source code into the Clipboard, Select "Run AppleScript", Paste the Clipboard content there
 
 ```
-property scriptTimeout : 10 -- script timeout in seconds
+-- Use case settings
 property jqPath : "/opt/homebrew/bin/jq" -- Replace with your actual path to jq tool
-property openaiEndpoint : "https://api.openai.com/v1/chat/completions"
 property apiKey : "sk-..." -- Replace with your actual API key
-property model : "gpt-4"
 property systemPrompt : "As a helpful text processor, your task is to rectify any typos, syntax errors, and grammar issues, while also refining certain phrases to ensure they sound more native and fluent. It's essential to maintain the original topic, terminology, meaning of the text, as well as any formatting elements such as emojis and bullet points. Your goal is to enhance the text to make it read as if it were composed by a native US speaker."
+property model : "gpt-4"
 
+-- System settings
+property scriptTimeout : 10 -- script timeout in seconds
+property openaiEndpoint : "https://api.openai.com/v1/chat/completions"
+
+
+-- Define a function to append content to a file
+on appendTextToFile(contentToAppend, filePath)
+	try
+		set fileRef to open for access filePath with write permission
+		write contentToAppend & linefeed to fileRef starting at eof
+		close access fileRef
+		--display dialog "Content has been successfully appended to the file."
+	on error errMsg
+		close access fileRef
+		display dialog "Error: " & errMsg
+	end try
+end appendTextToFile
+
+-- Converts the selected original text into a valid JSON fragment.
+on convertToJSON(inputText)
+	set jsonString to quoted form of inputText
+	set jsonString to my replaceText(jsonString, "\\", "\\\\\\\\")
+	set jsonString to my replaceText(jsonString, "\"", "\\\"")
+	set jsonString to my replaceText(jsonString, "/", "\\/")
+	set jsonString to my replaceText(jsonString, character id 8, "\\b")
+	set jsonString to my replaceText(jsonString, character id 12, "\\f")
+	set jsonString to my replaceText(jsonString, linefeed, "\\n")
+	set jsonString to my replaceText(jsonString, return, "\\r")
+	set jsonString to my replaceText(jsonString, tab, "\\t")
+	return text 2 thru -2 of jsonString -- removes the extra quotes added by quoted form of
+end convertToJSON
+
+-- Text replacer.
+on replaceText(originalText, findText, replaceText)
+	set AppleScript's text item delimiters to findText
+	set theTextItems to text items of originalText
+	set AppleScript's text item delimiters to replaceText
+	set originalText to theTextItems as string
+	set AppleScript's text item delimiters to ""
+	return originalText
+end replaceText
+
+-- Selected text transformation handler.
 on run {input, parameters}
 	if input is {} then
 		set userQuery to "London is the capital of great britain.
 This is the line wit som typos."
 	else
 		-- Coerce input to string if it is provided
-		set userQuery to (input as string)
+		set userQuery to (convertToJSON(input as string))
 	end if
 	
-	-- Escape new lines in userQuery for JSON
-	set oldDelimiters to AppleScript's text item delimiters
-	set AppleScript's text item delimiters to {"
-"}
-	set textItemList to every text item of userQuery
-	set AppleScript's text item delimiters to {"\\n"}
-	set userQuery to textItemList as string
-	set AppleScript's text item delimiters to oldDelimiters
 	
 	-- Construct JSON payload
 	set requestData to "{ \"model\": \"" & model & "\", \"messages\": [ { \"role\": \"system\", \"content\": \"" & systemPrompt & "\" }, { \"role\": \"user\", \"content\": \"" & userQuery & "\" } ] }"
@@ -44,6 +78,8 @@ This is the line wit som typos."
 	-- Prepare curl command
 	set curlCommand to "curl -s " & openaiEndpoint & " -H \"Content-Type: application/json\" -H \"Authorization: Bearer " & apiKey & "\" -d " & quoted form of requestData & " | " & jqPath & " -r '.choices[0].message.content'"
 	
+	appendTextToFile("Returned from curl:
+" & curlCommand, "/Users/greg/Desktop/debug_automator.txt")
 	--return curlCommand
 	
 	-- Execute curl command and parse with jq
