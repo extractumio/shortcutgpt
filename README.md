@@ -24,19 +24,6 @@ property scriptTimeout : 10 -- script timeout in seconds
 property openaiEndpoint : "https://api.openai.com/v1/chat/completions"
 
 
--- Define a function to append content to a file
-on appendTextToFile(contentToAppend, filePath)
-	try
-		set fileRef to open for access filePath with write permission
-		write contentToAppend & linefeed to fileRef starting at eof
-		close access fileRef
-		--display dialog "Content has been successfully appended to the file."
-	on error errMsg
-		close access fileRef
-		display dialog "Error: " & errMsg
-	end try
-end appendTextToFile
-
 -- Converts the selected original text into a valid JSON fragment.
 on convertToJSON(inputText)
 	set jsonString to quoted form of inputText
@@ -77,10 +64,6 @@ This is the line wit som typos."
 	
 	-- Prepare curl command
 	set curlCommand to "curl -s " & openaiEndpoint & " -H \"Content-Type: application/json\" -H \"Authorization: Bearer " & apiKey & "\" -d " & quoted form of requestData & " | " & jqPath & " -r '.choices[0].message.content'"
-	
-	appendTextToFile("Returned from curl:
-" & curlCommand, "/Users/greg/Desktop/debug_automator.txt")
-	--return curlCommand
 	
 	-- Execute curl command and parse with jq
 	with timeout of scriptTimeout seconds
