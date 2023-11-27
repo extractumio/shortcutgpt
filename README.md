@@ -4,6 +4,8 @@ by Gregory Z., info@extractum.io
 An automated ChatGPT text processing that can be run on the selected text with a shortcut right on your Mac.
 For example, you can easily rewrite any selected text in any application with just a single keystroke.
 
+Detailed guide: https://medium.com/@mne/experience-mind-blowing-in-context-text-processing-on-macos-using-automator-and-chatgpt-82b4ab7d5254
+
 ## Install the Automation:
 1. Open Automator (Application->Automator)
 2. Select "Quck Action"
@@ -23,6 +25,19 @@ property model : "gpt-4"
 property scriptTimeout : 10 -- script timeout in seconds
 property openaiEndpoint : "https://api.openai.com/v1/chat/completions"
 
+
+-- Define a function to append content to a file
+on appendTextToFile(contentToAppend, filePath)
+	try
+		set fileRef to open for access filePath with write permission
+		write contentToAppend & linefeed to fileRef starting at eof
+		close access fileRef
+		--display dialog "Content has been successfully appended to the file."
+	on error errMsg
+		close access fileRef
+		display dialog "Error: " & errMsg
+	end try
+end appendTextToFile
 
 -- Converts the selected original text into a valid JSON fragment.
 on convertToJSON(inputText)
